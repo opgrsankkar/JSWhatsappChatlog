@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script>
+        var newExchangeRegExp = new RegExp('(?=[0-3][0-9]/[0-1][0-9]/[0-9]{4} [0-2][0-9]:[0-5][0-9]:[0-5][0-9]: *)');
+
+        function Text(fileContents) {
+            this.exchangesList = (fileContents.split(newExchangeRegExp)).map(function(val){return new Exchange(val)});
+            this.exchangersList = [];
+            for (var i = 0; i < this.exchangesList.length; i++) {
+                if (!this.exchangersList.includes(this.exchangesList[i].exchanger) && this.exchangesList[i].exchanger != "") {
+                    this.exchangersList.push(this.exchangesList[i].exchanger);
+                }
+            }
+            for(var i = 0; i < this.exchangersList.length; i++) {
+                console.log(this.exchangersList[i]);
+            }
+
+        }
+        function Exchange(text) {
+            if(newExchangeRegExp.test(text)) {
+                this.fullText = text;
+                this.timestamp = this.fullText.substring(0, 19);
+                var exchangeWithoutTimestamp = this.fullText.substring(21);
+                this.exchanger = exchangeWithoutTimestamp.substring(0, exchangeWithoutTimestamp.indexOf(':'));
+                this.message = exchangeWithoutTimestamp.substring(exchangeWithoutTimestamp.indexOf(':') + 1);
+            }
+            else{
+                this.fullText = "";
+                this.timestamp ="";
+                this.exchanger ="";
+                this.message = "";
+            }
+        }
+    </script>
+    <style>
+        #body{
+            background-color: powderblue;
+        }
+        .container {
+            text-align: center;
+        }
+
+        html {
+            font-family: sans-serif;
+        }
+
+        .inputfile {
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            position: absolute;
+            z-index: -1;
+        }
+
+        .inputfile + label {
+            font-size: 1.25em;
+            font-weight: 700;
+            color: white;
+            padding: 10px 20px;
+            background-color: orange;
+            display: inline-block;
+            box-shadow: 1px 1px 2px 0.5px rgba(0, 0, 0, 0.2);
+            transition: 0.3s;
+        }
+
+        .inputfile + label:hover,
+        .inputfile:focus + label {
+            box-shadow: 1px 1px 2px 1px rgba(0, 0, 0, 0.2);
+        }
+
+        #progress_bar {
+            margin: 10px 0;
+            padding: 3px;
+            border: 1px solid #000;
+            font-size: 14px;
+            clear: both;
+            opacity: 0;
+            -moz-transition: opacity 1s linear;
+            -o-transition: opacity 1s linear;
+            -webkit-transition: opacity 1s linear;
+        }
+        #progress_bar.loading {
+            opacity: 1.0;
+        }
+        #progress_bar .percent {
+            background-color: #99ccff;
+            height: auto;
+            width: 0;
+        }
+        #cancel_read{
+            margin-top: 10px;
+            border: none;
+            background: none;
+            text-decoration: underline;
+            color: blue;
+        }
+        .sender{
+            font-weight: bold;
+        }
+        .left{
+            text-align:left;
+            background-color:beige;
+            box-shadow:2px 2px 4px 0.5px rgba(0,0,0,0.2);
+            margin-top:10px;
+            border-radius:5px;
+            padding:5px;
+            max-width:60%;
+
+        }
+        .right{
+            margin-left:40%;
+            text-align:right;
+            background-color:azure;
+            box-shadow:-2px 2px 4px 0.5px rgba(0,0,0,0.2);
+            margin-top:10px;
+            border-radius:5px;
+            padding:5px;
+            max-width:60%;
+        }
+        #content{
+            margin:0 auto auto 20%;
+        }
+        .same-exchanger{
+            margin-top: 2px;
+        }
+        #cancel_read:active{color: red;}
+    </style>
+</head>
+<body id="body">
+<div class="container">
+    <p></p>
+    <form>
+        <input id="files" class="inputfile" type="file" name="file"/>
+        <label for="files">Select file to parse</label>
+        <br />
+        <button id="cancel_read" onclick="abortRead();">Cancel read</button>
+        <div id="progress_bar">
+            <div class="percent">0%</div>
+        </div>
+    </form>
+    <output id="list"></output>
+</div>
+<div id="content">
+
+</div>
+<script>
+    var text = "";
+    var reader;
+    var progress = document.querySelector('.percent');
+
+    function abortRead() {
+        reader.abort();
+    }
+
+    function errorHandler(evt) {
+        switch (evt.target.error.code) {
+            case evt.target.error.NOT_FOUND_ERR:
+                alert('File Not Found!');
+                break;
+            case evt.target.error.NOT_READABLE_ERR:
+                alert('File is not readable');
+                break;
+            case evt.target.error.ABORT_ERR:
+                break; // noop
+            default:
+                alert('An error occurred reading this file.');
+        };
+    }
+
+    function updateProgress(evt) {
+        // evt is an ProgressEvent.
+        if (evt.lengthComputable) {
+            var percentLoaded = Math.round((evt.loaded / evt.total) * 100);
+            // Increase the progress bar length.
+            if (percentLoaded < 100) {
+                progress.style.width = percentLoaded + '%';
+                progress.textContent = percentLoaded + '%';
+            }
+        }
+    }
+
+    function handleFileSelect(evt) {
+        // Reset progress indicator on new file selection.
+        progress.style.width = '0%';
+        progress.textContent = '0%';
+
+        var files = evt.target.files;
+        var e = files[0];
+        if(!e.type.match(new RegExp('text/plain'))){
+            alert("Upload only TXT files");
+            return;
+        }
+        reader = new FileReader();
+        reader.onerror = errorHandler;
+        reader.onprogress = updateProgress;
+        reader.onabort = function (e) {
+            alert('File read cancelled');
+        };
+        reader.onloadstart = function (e) {
+            document.getElementById('progress_bar').className = 'loading';
+        };
+        reader.onload = (function (e) {
+            // Ensure that the progress bar displays 100% at the end.
+            progress.style.width = '100%';
+            progress.textContent = '100%';
+            setTimeout("document.getElementById('progress_bar').className='';", 2000);
+            return function (k) {
+                var contents = k.target.result;
+
+                //Actual Content
+                var mText = new Text(contents.toString());
+                var html = document.getElementById('content');
+                html.innerHTML = "";
+                for(var i = 0; i < mText.exchangesList.length; i++) {
+                    var currentExchanger = mText.exchangesList[i].exchanger;
+                    var previousExchanger = "";
+                    if(i>0)
+                        previousExchanger = mText.exchangesList[i-1].exchanger;
+                    if(mText.exchangesList[i].fullText == "")continue;
+                    var senderNode = document.createElement("DIV");
+                    var textNode = document.createTextNode(mText.exchangesList[i].exchanger);
+                    var senderClass = document.createAttribute("class");
+                    senderClass.value = "sender";
+                    senderNode.setAttributeNode(senderClass);
+                    var messageNode = document.createTextNode(mText.exchangesList[i].message);
+
+                    senderNode.appendChild(textNode);
+                    var exchangeNode = document.createElement("DIV");
+                    if(currentExchanger != previousExchanger) {
+                        exchangeNode.appendChild(senderNode);
+                    }
+                    else{
+                        var sameExchangerAttr = document.createAttribute("class");
+                        sameExchangerAttr.value = "same-exchanger";
+                        exchangeNode.setAttributeNode(sameExchangerAttr);
+                    }
+                    exchangeNode.appendChild(messageNode);
+                    if(currentExchanger == mText.exchangersList[0]) {
+                        var leftNode = document.createAttribute("class");
+                        leftNode.value = exchangeNode.getAttribute("class")+" "+"left";
+                        exchangeNode.setAttributeNode(leftNode);
+                    }
+                    if(currentExchanger == mText.exchangersList[1]){
+                        var rightNode = document.createAttribute("class");
+                        rightNode.value = exchangeNode.getAttribute("class")+" "+"right";
+                        exchangeNode.setAttributeNode(rightNode);
+                    }
+                    html.appendChild(exchangeNode);
+                    document.g
+                }
+
+            }
+        })(e);
+
+        // Read in the TXT file
+        reader.readAsText(e);
+    }
+    document.getElementById('files').addEventListener('change', handleFileSelect, false);
+</script>
+</body>
+</html>
